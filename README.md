@@ -1,356 +1,168 @@
 [![Coverage Status](https://coveralls.io/repos/github/razor-network/razor-go/badge.svg?branch=main)](https://coveralls.io/github/razor-network/razor-go?branch=main)
 
-# Razor-Go
+# Razor Network Türkçe Node Kurulumu 
 
-Official node for running stakers in Golang.
+Resmi github sayfasından forklanarak tarafımdan düzenlenmiştir.
 
-## Installation
+# Sistem Gereksinimleri
 
-### Linux quick start
+4 CPU (Arm64 ya da Amd64)
+4GB RAM
 
-Install `razor-go` pre build binary directly from github and configure into host.
+## Metamask'a Ağ Eklenmesi ve Fee için Token Alınması 
 
-  For linux-amd64
-  ```
-  curl -sSL https://raw.githubusercontent.com/razor-network/razor-go/main/install.sh | bash 
-  ```
+Öncelikle Skale Testnet v2 ağını metamask'a ekliyoruz.
 
-  For linux-arm64
-  ```
-  export PLATFORM=arm64
+Network Name:	Skale Testnet v2
+New RPC URL:	https://staging-v2.skalenodes.com/v1/whispering-turais
+Chain ID:	132333505628089
+Currency Symbol:	ETH
+Block Explorer URL:	https://whispering-turais.testnet-explorer.skalenodes.com
 
-  curl -sSL https://raw.githubusercontent.com/razor-network/razor-go/main/install.sh | bash 
-  ```
+100.000 adet Razor tokenini cüzdanımızda görmek için metamaska aşağıdaki kontratı ekliyoruz;
+Contract address: 0xDc342De801De342EdE013C7E6e7a78Fa4f548041
 
-Check installation
+ETH fee için faucetten token alıyoruz: https://faucet.skale.network/
+Skale Endpoint yazan yere bu adresi yapıştıyoruz: https://staging-v2.skalenodes.com/v1/whispering-turais
 
+## Node Kurulumu
+
+### Güncellemeler ve Docker Kurulumu
+Sunucuya root yetkisi ile erişim sağladıktan sonra aşağıdaki kodları sırasıyla giriyoruz.
 ```
-razor -v
-```
->**_NOTE:_** To install the version you want, you can set VERSION:<git-tag> environment variable before running above command.
-## Docker quick start
-
-One of the quickest ways to get `razor-go` up and running on your machine is by using Docker:
-```
-docker run -d -it--entrypoint /bin/sh  --name razor-go -v "$(echo $HOME)"/.razor:/root/.razor razornetwork/razor-go:v1.0.1-incentivised-testnet-phase2
-```
-
->**_NOTE:_** that we are leveraging docker bind-mounts to mount `.razor` directory so that we have a shared mount of `.razor` directory between the host and the container. The `.razor` directory holds keys to the addresses that we use in `razor-go`, along with logs and config. We do this to persist data in the host machine, otherwise you would lose your keys once you delete the container.
-
-You need to set a provider before you can operate razor-go cli on docker:
-
-```
-docker exec -it razor-go razor setConfig -p <provider_url>
+apt-get update
+apt install docker.io
+snap install docker
+docker --version
+docker run hello-world
+docker images
 ```
 
-You can now execute razor-go cli commands by running:
+### Go Kurulumu
 
 ```
-docker exec -it razor-go razor <command>
+wget -O go1.17.3.linux-amd64.tar.gz https://golang.org/dl/go1.17.3.linux-amd64.tar.gz
+rm -rf /usr/local/go && tar -C /usr/local -xzf go1.17.3.linux-amd64.tar.gz && rm go1.17.3.linux-amd64.tar.gz
+echo 'export GOROOT=/usr/local/go' >> $HOME/.bashrc
+echo 'export GOPATH=$HOME/go' >> $HOME/.bashrc
+echo 'export GO111MODULE=on' >> $HOME/.bashrc
+echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin' >> $HOME/.bashrc && . $HOME/.bashrc
+go version
+```
+Son çıktı go versionun 1.17 olduğunu belirtiyorsa bu adım da tamamlanmış demektir.
+
+### Razor Netwok Node Kurulumu
+```
+docker run -d -it --name razor-go -v "$(echo $HOME)"/.razor:/root/.razor razornetwork/razor-go:v1.0.3-incentivised-testnet-phase2-patch2
+```
+#### Yapılandırmayı ayarlıyoruz.
+```
+docker exec -it razor-go razor setConfig --provider https://staging-v2.skalenodes.com/v1/whispering-turais --gasmultiplier 1 --buffer 20 --wait 30 --gasprice 0 --logLevel debug --gasLimit 2
 ```
 
-### Prerequisites to building the source
-
-- Golang 1.15 or later must be installed.
-- Latest stable version of node is required.
-- Silicon chip based Mac users must go for node 15.3.0+
-- `geth` and `abigen` should be installed. (Skip this step if you don't want to fetch the bindings and build from scratch)
-- `solc` and `jq` must be installed.
-### Building the source
-
-1. Run `npm install` to install the node dependencies.
-2. If you want to build from scratch i.e., by fetching the smart contract bindings as well, run `npm run build-all`.
-
-   _Note: To build from scratch, `geth` and `abigen` must be installed in your system._
-
-3. If you already have the `pkg/bindings` you can run `npm run build` instead of `npm run build-all` to directly build the binary.
-4. If you want to build the binary without wanting to set the configurations use `npm run build-noargs`
-5. While building the binary, supply the provider RPC url and the gas multiplier.
-6. To bypass the interactive mode of providing password, create file in `.razor` directory with providing password in it.
-7. The binary will be generated at `build/bin`.
-
-## Commands
-
-Go to the `build/bin` directory where the razor binary is generated.
-
-`cd build/bin`
-
-
-### Set Config
-
-There are a set of parameters that are configurable. These include:
-
-- Provider: The RPC URL of the provider you are using to connect to the blockchain.
-- ChainId: The chain ID is a property of the chain managed by the node. It is used for replay protection of transactions.
-- Gas Multiplier: The value with which the gas price will be multiplied while sending every transaction.
-- Buffer Size: Buffer size determines, out of all blocks in a state, in how many blocks the voting or any other operation can be performed.
-- Wait Time: This is the number of blocks the system will wait while voting.
-- Gas Price: The value of gas price if you want to set manually. If you don't provide any value or simply keep it to 1, the razor client will automatically calculate the optimum gas price and send it.
-- Log Level: Normally debug logs are not logged into the log file. But if you want you can set `logLevel` to `debug` and fetch the debug logs.
-- Gas Limit: The value with which the gas limit will be multiplied while sending every transaction.
-
-The config is set while the build is generated, but if you need to change any of the above parameter, you can use the `setConfig` command.
-
-razor cli
-
-```
-$ ./razor setConfig --provider <rpc_provider> --chainId <chain_id> --gasmultiplier <multiplier_value> --buffer <buffer_percentage> --wait <wait_for_n_blocks> --gasprice <gas_price> --logLevel <debug_or_info> --gasLimit <gas_limit_multiplier>
-```
-
-docker
-
-```
-docker exec -it razor-go razor setConfig --provider <rpc_provider> --chainId <chain_id> --gasmultiplier <multiplier_value> --buffer <buffer_percentage> --wait <wait_for_n_blocks> --gasprice <gas_price> --logLevel <debug_or_info> --gasLimit <gas_limit_multiplier>
-```
-
-Example:
-
-```
-$ ./razor setConfig --provider https://infura/v3/matic --chainId 80001 --gasmultiplier 1.5 --buffer 20 --wait 70 --gasprice 1 --logLevel debug --gasLimit 0.8
-```
-
-Other than setting these parameters in the config, you can use different values of these parameters in different command. Just add the same flag to any command you want to use and the new config changes will appear for that command.
-
-Example:
-
-```
-$ ./razor vote --address 0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c --gasprice 10
-```
-
-This will cause this particular vote command to run with a gas price of 10.
-
-
-
-## Razor commands
-
-### Create Account
-
-Create an account using the `create` command. You'll be asked to enter a password that'll be used to encrypt the keystore file.
-
-razor cli
-
-```
-$ ./razor create
-
-```
-
-Docker
-
-```
-docker exec -it razor-go razor create
-```
-Example:
-
-```
-$ ./razor create
-Password:
-```
-
-### Import Account
-
-If you already have an account created, and have it's private key, that account can be imported into the `razor-go` client.
-To do that, you can use the `import` command. You'll be asked the private key first and then the password which you want to encrypt your keystore file with.
-
-razor cli
-
-```
-$ ./razor import
-```
-
-docker
-
+#### 100.000 Razor aldığımız cüzdanımızı import ediyoruz.
 ```
 docker exec -it razor-go razor import
 ```
-
-Example:
-
+Kodu girdikten sonra karşımıza aşağıdaki gibi bir ekran gelecek;
 ```
 $ ./razor import
 🔑 Private Key:
 Password:
 ```
+Burada üzdanımızın private key'ini girip şifre belirliyoruz.
 
-_Before staking on Razor Network, please ensure your account has eth and RAZOR. For testnet RAZOR, please contact us on Discord._
-
-### Stake
-
-If you have a minimum of 1000 razors in your account, you can stake those using the addStake command.
-
-razor cli
-
+#### Stake işlemini gerçekleştiriyoruz.
 ```
-$ ./razor addStake --address <address> --value <value>
+docker exec -it razor-go razor addStake --address <cüzdan adresimizi yazıyoruz> --value <stake edeceğimizi miktar> --logFile logs
+```
+Aşağıdaki örnekte gibi olacak:
+```
+docker exec -it razor-go razor addStake --address 0x0000000000000000000000000000000000000000 --value 99000 --logFile logs
 ```
 
-docker
-
+#### Delegasyonu Ayarlama
+Node'unuzu delegation işlemlerine yani delegatorlerin size stake etmesine açmak için aşağıdaki kodları giriyoruz;
 ```
-docker exec -it razor-go razor addStake --address <address> --value <value>
+docker exec -it razor-go razor setDelegation --address 0x0000000000000000000000000000000000000000 --status true --commission 5 --logFile logs
 ```
+comission bölümünü istediğiniz gibi değiştirebilirsiniz ben 5 yazdım.
 
-Example:
-
+#### Oylamalara Katılma
+Oylamalalara katılmak ve işlemlerin arka planda gerçekleşmesi için için tmux yüklüyoruz;
 ```
-$ ./razor addStake --address 0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c --value 1000
+apt install tmux
 ```
-
-_Note: --pow flag is used to stake floating number stake_
-
-_Note: Formula for calculating pow: (value \* (10**18)) / (10**x) where x is no of decimal places and value is integer_
-
-_The value of pow is : 18 - x here_
-
-If you have a 1000.25 razors in your account, you can stake those using the stake command with pow flag.
-
-Example:
-
+tmux'u çalıştırıyoruz
 ```
-$ razor addStake --address 0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c --value 100025 --pow 16
+tmux new -s razor-go
+```
+Oylamaları yapacağımız cüzdan adresimizi giriyoruz;
+```
+docker exec -it razor-go razor vote --address 0x0000000000000000000000000000000000000000 --logFile logs
 ```
 
-If you have a 5678.1001 razors in your account, you can stake those using the stake command with pow flag.
+### Yararlı Komutlar
 
-If you have a 5678.1001 razors in your account, you can stake those using the stake command with pow flag.
-
-Example:
-
-```
-$ ./razor addStake --address 0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c --value 56781001 --pow 14
-```
-
-### Staker Info
-
-If you want to know the details of a staker, you can use stakerInfo command.
-
-razor cli
-
-```
-$ ./razor stakerInfo --stakerId <staker_id_of_the_staker>
-```
-
-docker
-
-```
-docker exec -it razor-go razor stakerInfo --stakerId <staker_id_of_the_staker>
-```
-
-Example:
-
-```
-$ ./razor stakerInfo --stakerId 2
-```
-
-### Set Delegation
-
-If you are a staker you can accept delegation from delegators and charge a commission from them.
-
-razor cli
-
-```
-$ ./razor setDelegation --address <address> --status <true_or_false> --commission <commission_percent>
-```
-
-docker
-
-```
-docker exec -it razor-go razor setDelegation --address <address> --status <true_or_false> --commission <commission_percent>
-```
-
-Example:
-
-```
-$ ./razor setDelegation --address 0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c --status true -c 20
-```
-
-### Update Commission
-
-If you are a staker and have accepted delegation, you can define your commission rate using this command.
-
-razor cli
-
-```
-$ ./razor updateCommission --address <address> --commission <commission_percent>
-
-```
-
-docker
+#### Komisyonu Güncelleme 
 
 ```
 docker exec -it razor-go razor updateCommission --address <address> --commission <commission_percent>
 ```
 
-Example:
+Örneğin:
 
 ```
-$ ./razor updateCommission --address 0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c --commission 10
+$ ./razor updateCommission --address 0x0000000000000000000000000000000000000000 --commission 5
 ```
 
-### Delegate
+### Delegate Etmek
 
-If you want to become a delegator use the `delegate` command. The staker whose `staker_id` is provided, their stake is increased.
+Eğer bir validatore token stake etmek yani delege etmek isterseniz aşağıdaki kodu kullanabilirsiniz.
+`<address>` bölümüne stake edeceğiniz adresi, `<value>`bölümüne stake edeceğiniz miktarı `<staker_id>` bölümüne  is provided, their stake is increased.
 
-razor cli
 
-```
-$ ./razor delegate --address <address> --value <value> --pow <power> --stakerId <staker_id>
-```
-
-docker
 
 ```
 docker exec -it razor-go razor delegate --address <address> --value <value> --pow <power> --stakerId <staker_id>
 ```
 
-Example:
+Örneğin:
 
 ```
-$ ./razor delegate --address 0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c --value 1000 --pow 10 --stakerId 1
+docker exec -it razor-go razor delegate --address 0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c --value 1000 --pow 10 --stakerId 1
 ```
 
-### Claim Commission 
+#### Komisyonları Çekme 
 
-Staker can claim the rewards earned from delegator's pool share as commission using `claimCommission`
-
-razor cli
-
-```
-$ ./razor claimCommission --address <address> 
-```
-
-docker
 
 ```
 docker exec -it razor-go razor claimCommission --address <address> 
 ```
 
-Example:
+Örneğin:
 
 ```
-$ ./razor claimCommission --address 0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c 
+docker exec -it razor-go razor claimCommission --address 0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c 
 ```
 
-### Vote
+#### Oylama
 
-You can start voting once you've staked some razors
-
-razor cli
-
-```
-$ ./razor vote --address <address>
-```
-
-docker
+Razor stake ederek oylamaya katılabilirsiniz.
 
 ```
 docker exec -it razor-go razor vote --address <address>
 ```
 
-run vote command in background
+Arka planda oylama komutunu çalıştırmak için aşağıdaki kodu da kullanabilirsiniz. Yukarıda yazmıştım.
+
 ```
 docker exec -it -d razor-go razor vote --address <address> --password /root/.razor/<file_name>
 ```
 >**_NOTE:_**  To run command with password flag, password file should present in $HOME/.razor/ directory
+
+
+## Aşağıdaki Bölümleri Daha Sonra Düzenleyeceğim.
 
 Example:
 
